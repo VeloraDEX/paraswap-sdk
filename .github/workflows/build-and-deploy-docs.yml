@@ -1,0 +1,52 @@
+name: Build and deploy Docs
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  frontend_name: sdk
+  build_command: yarn docs:html
+  assets_location: ./docs/html
+
+jobs:
+  build-and-deploy-frontend:
+    name: Build and deploy frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Composite Actions Repository
+        uses: actions/checkout@v2
+        with:
+          repository: paraswap/paraswap-github-actions
+          ref: master
+          token: ${{ secrets.PARASWAP_GITHUB_ACTIONS_PAT }}
+          path: .github/paraswap-github-actions
+
+      - name: Build and deploy frontend using composite action
+        uses: ./.github/paraswap-github-actions/build-and-deploy-frontend
+        with:
+          frontend_name: ${{ env.frontend_name }}
+          build_command: ${{ env.build_command }}
+          assets_location: ${{ env.assets_location }}
+          repository_sha: ${{ github.sha}}
+          event_name: ${{ github.event_name }}
+          authentication_token: ${{ secrets.AUTHENTICATION_KEY }}
+          authorization_token: ${{ secrets.AUTHORIZATION_KEY }}
+          data_center: ${{ secrets.DATA_CENTER }}
+
+      # We re-checkout composite actions repository due to a known bug that if composite action does its own checkout, it deletes any previous checkouts
+      # thus, the post action fails on not finding the composite action we checked-out. See: https://github.com/actions/runner/issues/1300
+      - name: ReCheckout Composite Actions Repository
+        uses: actions/checkout@v2
+        with:
+          repository: paraswap/paraswap-github-actions
+          ref: master
+          token: ${{ secrets.PARASWAP_GITHUB_ACTIONS_PAT }}
+          path: .github/paraswap-github-actions
